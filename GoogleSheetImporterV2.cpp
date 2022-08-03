@@ -26,7 +26,6 @@ void ResetForNextRequest
 ( SCStudyInterfaceRef sc
 , int& r_RequestState
 , SCDateTime& r_LastRequestDateTime
-, int& r_DrawingsAdded
 );
 
 int RequestValuesFromServer
@@ -58,9 +57,6 @@ SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
 		  sc.AutoLoop = 0;
 
       i_FilePath.Name = "Google Sheets URL";
-      // example template:
-      // https://docs.google.com/spreadsheets/d/1fx_Ym6QodEJIqQO90HR1dWYFw5RoK2w5ywtHeMlMeZY/gviz/tq?tqx=out:csv
-      // Google Docs Spreadsheet
       // REQUIRED:
       //    - you must set SHARING privs to "Anyone with link"
       //    - you must strip off anything after the unique key, for example "/edit#usp=sharing" **needs** to be removed
@@ -81,21 +77,16 @@ SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
   SCString& r_HttpResponseContent = sc.GetPersistentSCString(1);
   int& r_RequestState = sc.GetPersistentInt(2);
 	SCDateTime& r_LastRequestDateTime = sc.GetPersistentSCDateTime(3);
-  int& r_DrawingsAdded = sc.GetPersistentInt(0);
-
-  // if it's the first run after a recalc (index = 0) and we have data, then reset the state to trigger another API call
-  // else if the reload option is true and the time since the last API call is > 24 hours, then reset the state to trigger another API call
-  // if the request state isn't NOT_SENT then hit the API and push the results into the variable
 
   if (sc.UpdateStartIndex == 0  && r_RequestState == HTTP_REQUEST_RECEIVED) // full recalc, so we reload
   {
     sc.AddMessageToLog("Full recalc detected - UpdateStartIndex is zero and we have an HTTP request.", false);
-    ResetForNextRequest(sc, r_RequestState, r_LastRequestDateTime, r_DrawingsAdded);
+    ResetForNextRequest(sc, r_RequestState, r_LastRequestDateTime);
   }
   else if (r_LastRequestDateTime.IsUnset() || ((sc.CurrentSystemDateTime - r_LastRequestDateTime) >= SCDateTime::MINUTES(1440))) // more than 24 hours since last retrieval
   {
     sc.AddMessageToLog("Refresh interval has passed. Flagging to request updated data.", false);
-    ResetForNextRequest(sc, r_RequestState, r_LastRequestDateTime, r_DrawingsAdded);
+    ResetForNextRequest(sc, r_RequestState, r_LastRequestDateTime);
   }
 
   if (RequestValuesFromServer(sc, i_FilePath.GetString(), r_RequestState))
@@ -117,12 +108,10 @@ void ResetForNextRequest
 ( SCStudyInterfaceRef sc
 , int& r_RequestState
 , SCDateTime& r_LastRequestDateTime
-, int& r_DrawingsAdded
 )
 {
 	r_RequestState = HTTP_REQUEST_NOT_SENT;
 	r_LastRequestDateTime = sc.CurrentSystemDateTime;
-  r_DrawingsAdded = 0;
 }
 
 int RequestValuesFromServer
@@ -166,13 +155,13 @@ void RedrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLeve
   // open an input stream and read from our Google Sheet
   std::istringstream input(sc.HTTPResponse.GetChars());
 
-  int LineNumber = 1;
+  int lineNumber = 1;
   for (std::string line; getline(input,line);) 
   {
     // Skip the header row
-    if (LineNumber == 1) 
+    if (lineNumber == 1) 
     {
-      LineNumber++;
+      lineNumber++;
       continue;
     }
 
@@ -279,7 +268,7 @@ void RedrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLeve
       Tool.ShowPrice = showPrice;
       Tool.TransparencyLevel = transparencyLevel;
       Tool.Text = note;
-      Tool.LineNumber = LineNumber;
+      Tool.LineNumber = lineNumber;
       sc.UseTool(Tool);
       
       // increment field counter
@@ -287,6 +276,6 @@ void RedrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLeve
     }
 
     // increment row counter
-    LineNumber++;
+    lineNumber++;
   }
 }
