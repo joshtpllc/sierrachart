@@ -51,27 +51,27 @@ SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
   // Set configuration variables
   if (sc.SetDefaults)
   {
-      sc.AddMessageToLog("Setting study defaults...", 0);
-      sc.GraphName = "Google Sheets Importer V2";
-      sc.GraphRegion = 0;
-		  sc.AutoLoop = 0;
+    sc.AddMessageToLog("Setting study defaults...", 0);
+    sc.GraphName = "Google Sheets Importer V2";
+    sc.GraphRegion = 0;
+    sc.AutoLoop = 0;
 
-      i_FilePath.Name = "Google Sheets URL";
-      // REQUIRED:
-      //    - you must set SHARING privs to "Anyone with link"
-      //    - you must strip off anything after the unique key, for example "/edit#usp=sharing" **needs** to be removed
-      i_FilePath.SetString("https://docs.google.com/spreadsheets/d/1_AwFC0Z5R69Ak8OKB20t3bOZGDKpGT1HZeonYE6Rq78");
+    i_FilePath.Name = "Google Sheets URL";
+    // REQUIRED:
+    //    - you must set SHARING privs to "Anyone with link"
+    //    - you must strip off anything after the unique key, for example "/edit#usp=sharing" **needs** to be removed
+    i_FilePath.SetString("https://docs.google.com/spreadsheets/d/1_AwFC0Z5R69Ak8OKB20t3bOZGDKpGT1HZeonYE6Rq78");
 
-      i_Transparency.Name = "Transparency Level";
-      i_Transparency.SetInt(70);
+    i_Transparency.Name = "Transparency Level";
+    i_Transparency.SetInt(70);
 
-      i_ShowPriceOnChart.Name = "Show Price By Chart Label?";
-      i_ShowPriceOnChart.SetYesNo(0);
+    i_ShowPriceOnChart.Name = "Show Price By Chart Label?";
+    i_ShowPriceOnChart.SetYesNo(0);
 
-      i_ReloadDaily.Name = "Reload levels daily";
-      i_ReloadDaily.SetYesNo(1);
+    i_ReloadDaily.Name = "Reload levels daily";
+    i_ReloadDaily.SetYesNo(1);
 
-      return;
+    return;
   }
 
   SCString& r_HttpResponseContent = sc.GetPersistentSCString(1);
@@ -155,13 +155,15 @@ void RedrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLeve
   // open an input stream and read from our Google Sheet
   std::istringstream input(sc.HTTPResponse.GetChars());
 
-  int lineNumber = 1;
+  int inputLineIndex = 1;
+  int uniqueLineNumber = 9563; // Per ASCIL docs, seed the tool's line number with a random start to avoid clashing with other tools
+
   for (std::string line; getline(input,line);) 
   {
     // Skip the header row
-    if (lineNumber == 1) 
+    if (inputLineIndex == 1) 
     {
-      lineNumber++;
+      inputLineIndex++;
       continue;
     }
 
@@ -177,11 +179,11 @@ void RedrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLeve
     Tool.LineStyle = LINESTYLE_SOLID;
     Tool.LineWidth = 1;
     Tool.TextAlignment = DT_RIGHT;
+    
     int idx = 1;
     float price;
     float price2 = 0;
     SCString note;
-    SCString color;
     SCString lineType;
     //SCString alignment;
     int linewidth = 1;
@@ -192,32 +194,31 @@ void RedrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLeve
       // price
       if (idx == 1) 
       {
-          price = atof(i);
+        price = atof(i);
       }
       // price 2 (only used for rectangles)
       else if (idx == 2) 
       {
-          price2 = atof(i);
-          if (price2 == 0) {
-              Tool.DrawingType = DRAWING_HORIZONTALLINE;
-              Tool.BeginValue = price;
-              Tool.EndValue = price;
-          }
-          else {
-              Tool.DrawingType = DRAWING_RECTANGLE_EXT_HIGHLIGHT;
-              Tool.BeginValue = price;
-              Tool.EndValue = price2;
-          }
+        price2 = atof(i);
+        if (price2 == 0) {
+            Tool.DrawingType = DRAWING_HORIZONTALLINE;
+            Tool.BeginValue = price;
+            Tool.EndValue = price;
+        }
+        else {
+            Tool.DrawingType = DRAWING_RECTANGLE_EXT_HIGHLIGHT;
+            Tool.BeginValue = price;
+            Tool.EndValue = price2;
+        }
       }
       // note label
       else if (idx == 3) 
       {
-          note = i;
+        note = i;
       }
       // color
       else if (idx == 4) 
       {
-        color = i;
         if (colorMap.count(i) > 0) {
           Tool.Color = colorMap[i];
         } else {
@@ -232,31 +233,32 @@ void RedrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLeve
       // line type
       else if (idx == 5) 
       {
-          lineType = i;
-          if (lineType.CompareNoCase("solid") == 0) Tool.LineStyle = LINESTYLE_SOLID;
-          else if (lineType.CompareNoCase("dash") == 0) Tool.LineStyle = LINESTYLE_DASH;
-          else if (lineType.CompareNoCase("dot") == 0) Tool.LineStyle = LINESTYLE_DOT;
-          else if (lineType.CompareNoCase("dashdot") == 0) Tool.LineStyle = LINESTYLE_DASHDOT;
-          else if (lineType.CompareNoCase("dashdotdot") == 0) Tool.LineStyle = LINESTYLE_DASHDOTDOT;
-          else 
-          {
-            msg.Format("Unknown line type detected: %s", lineType);
-            sc.AddMessageToLog(msg, false);
-            Tool.LineStyle = LINESTYLE_SOLID;
-          }
+        lineType = i;
+        if (lineType.CompareNoCase("solid") == 0) Tool.LineStyle = LINESTYLE_SOLID;
+        else if (lineType.CompareNoCase("dash") == 0) Tool.LineStyle = LINESTYLE_DASH;
+        else if (lineType.CompareNoCase("dot") == 0) Tool.LineStyle = LINESTYLE_DOT;
+        else if (lineType.CompareNoCase("dashdot") == 0) Tool.LineStyle = LINESTYLE_DASHDOT;
+        else if (lineType.CompareNoCase("dashdotdot") == 0) Tool.LineStyle = LINESTYLE_DASHDOTDOT;
+        else 
+        {
+          msg.Format("Unknown line type detected: %s. Using default solid line type.", lineType);
+          sc.AddMessageToLog(msg, false);
+          Tool.LineStyle = LINESTYLE_SOLID;
+        }
       }
       // line width
       else if (idx == 6) 
       {
+        // Blanks should be treated as default size 1
         if (i != "") linewidth = atoi(i);
         Tool.LineWidth = linewidth;
       }
       // text alignment
       else if (idx == 7) 
       {
-        // alignment = i;
         textalignment = atoi(i);
         // TODO: change to the string compare, but have to figure out how to handle multiple options
+        // Actually, as it turns out, you can only do left or right for study-added tools. This can be simplified.
         if (textalignment > 0) Tool.TextAlignment = textalignment;
       }
 
@@ -268,7 +270,7 @@ void RedrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLeve
       Tool.ShowPrice = showPrice;
       Tool.TransparencyLevel = transparencyLevel;
       Tool.Text = note;
-      Tool.LineNumber = lineNumber;
+      Tool.LineNumber = uniqueLineNumber + inputLineIndex;
       sc.UseTool(Tool);
       
       // increment field counter
@@ -276,6 +278,6 @@ void RedrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLeve
     }
 
     // increment row counter
-    lineNumber++;
+    inputLineIndex++;
   }
 }
