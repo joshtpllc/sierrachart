@@ -48,7 +48,7 @@ std::map<std::string, int> colorMap {
     { "gainsboro", COLOR_GAINSBORO },
     { "ghostwhite", COLOR_GHOSTWHITE },
     { "gold", COLOR_GOLD },
-    { "golednrod", COLOR_GOLDENROD },
+    { "goldenrod", COLOR_GOLDENROD },
     { "gray", COLOR_GRAY },
     { "green", COLOR_GREEN },
     { "greenyellow", COLOR_GREENYELLOW },
