@@ -34,10 +34,14 @@ int RequestValuesFromServer
 , int& r_RequestState
 );
 
-void RedrawLevels 
+void DrawLevels 
 ( SCStudyInterfaceRef sc
 , int& showPrice
 , int& transparencyLevel);
+
+SCDateTime ParsetDateTimeFromStrings
+( SCString& dateString
+, SCString& timeString);
 
 SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
 {
@@ -60,7 +64,7 @@ SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
     // REQUIRED:
     //    - you must set SHARING privs to "Anyone with link"
     //    - you must strip off anything after the unique key, for example "/edit#usp=sharing" **needs** to be removed
-    i_FilePath.SetString("https://docs.google.com/spreadsheets/d/1_AwFC0Z5R69Ak8OKB20t3bOZGDKpGT1HZeonYE6Rq78");
+    i_FilePath.SetString("https://docs.google.com/spreadsheets/d/1teaycOH7dQAbBYoSF9GEYmKaPZxdiSHdjC52y7MGm_4");
 
     i_Transparency.Name = "Transparency Level";
     i_Transparency.SetInt(70);
@@ -100,7 +104,7 @@ SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
     r_RequestState = HTTP_REQUEST_RECEIVED;
     int showPrice = i_ShowPriceOnChart.GetInt();
     int transparency = i_Transparency.GetInt();
-    RedrawLevels(sc, showPrice, transparency);
+    DrawLevels(sc, showPrice, transparency);
 	}
 }
 
@@ -143,7 +147,7 @@ int RequestValuesFromServer
 	return 1;
 }
 
-void RedrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel)
+void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel)
 {  
   sc.AddMessageToLog("Redrawing levels...", false);
   SCString msg;
@@ -179,103 +183,141 @@ void RedrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLeve
     Tool.LineStyle = LINESTYLE_SOLID;
     Tool.LineWidth = 1;
     Tool.TextAlignment = DT_RIGHT;
-    
+
     int idx = 1;
     float price;
     float price2 = 0;
+
+    SCString startDateString;
+    SCDateTime startDate;
+    SCString startTimeString;
+    SCDateTime startTime;
+    SCDateTime startDateTime;
+
+    SCString endDateString;
+    SCDateTime endDate;
+    SCString endTimeString;
+    SCDateTime endTime;
+    SCDateTime endDateTime;
+
     SCString note;
     SCString lineType;
     //SCString alignment;
     int linewidth = 1;
     int textalignment = 1;
-    
-    for (char* i : tokens) 
+
+    price = atof(tokens.at(0));
+    Tool.BeginValue = price;
+
+    price2 = atof(tokens.at(1));
+    if (price2 == 0)
     {
-      // price
-      if (idx == 1) 
-      {
-        price = atof(i);
-      }
-      // price 2 (only used for rectangles)
-      else if (idx == 2) 
-      {
-        price2 = atof(i);
-        if (price2 == 0) {
-            Tool.DrawingType = DRAWING_HORIZONTALLINE;
-            Tool.BeginValue = price;
-            Tool.EndValue = price;
-        }
-        else {
-            Tool.DrawingType = DRAWING_RECTANGLE_EXT_HIGHLIGHT;
-            Tool.BeginValue = price;
-            Tool.EndValue = price2;
-        }
-      }
-      // note label
-      else if (idx == 3) 
-      {
-        note = i;
-      }
-      // color
-      else if (idx == 4) 
-      {
-        if (colorMap.count(i) > 0) {
-          Tool.Color = colorMap[i];
-        } else {
-          msg.Format("Unrecognized color name encountered: %s", i);
-          sc.AddMessageToLog(msg, false);
-          Tool.Color = COLOR_WHITE;
-        }
-
-        // if drawing a rectangle, make the fill color same as border
-        if (price2 > 0) Tool.SecondaryColor = Tool.Color;
-      }          
-      // line type
-      else if (idx == 5) 
-      {
-        lineType = i;
-        if (lineType.CompareNoCase("solid") == 0) Tool.LineStyle = LINESTYLE_SOLID;
-        else if (lineType.CompareNoCase("dash") == 0) Tool.LineStyle = LINESTYLE_DASH;
-        else if (lineType.CompareNoCase("dot") == 0) Tool.LineStyle = LINESTYLE_DOT;
-        else if (lineType.CompareNoCase("dashdot") == 0) Tool.LineStyle = LINESTYLE_DASHDOT;
-        else if (lineType.CompareNoCase("dashdotdot") == 0) Tool.LineStyle = LINESTYLE_DASHDOTDOT;
-        else 
-        {
-          msg.Format("Unknown line type detected: %s. Using default solid line type.", lineType);
-          sc.AddMessageToLog(msg, false);
-          Tool.LineStyle = LINESTYLE_SOLID;
-        }
-      }
-      // line width
-      else if (idx == 6) 
-      {
-        // Blanks should be treated as default size 1
-        if (i != "") linewidth = atoi(i);
-        Tool.LineWidth = linewidth;
-      }
-      // text alignment
-      else if (idx == 7) 
-      {
-        textalignment = atoi(i);
-        // TODO: change to the string compare, but have to figure out how to handle multiple options
-        // Actually, as it turns out, you can only do left or right for study-added tools. This can be simplified.
-        if (textalignment > 0) Tool.TextAlignment = textalignment;
-      }
-
-      // draw line
-      Tool.ChartNumber = sc.ChartNumber;
-      Tool.BeginDateTime = sc.BaseDateTimeIn[0];
-      Tool.EndDateTime = sc.BaseDateTimeIn[sc.ArraySize-1];
-      Tool.AddMethod = UTAM_ADD_OR_ADJUST;
-      Tool.ShowPrice = showPrice;
-      Tool.TransparencyLevel = transparencyLevel;
-      Tool.Text = note;
-      Tool.LineNumber = uniqueLineNumber + inputLineIndex;
-      sc.UseTool(Tool);
-      
-      // increment field counter
-      idx++;
+      Tool.DrawingType = DRAWING_HORIZONTALLINE;
+      Tool.EndValue = price;
     }
+    else
+    {
+      Tool.DrawingType = DRAWING_RECTANGLE_EXT_HIGHLIGHT;
+      Tool.EndValue = price2;
+    }
+
+    startDateString = tokens.at(2);
+    startTimeString = tokens.at(3);
+    endDateString = tokens.at(4);
+    endTimeString = tokens.at(5);
+
+    if (startDateString != "")
+    {
+      startDate = sc.DateStringToSCDateTime(startDateString);
+      startTime = sc.TimeStringToSCDateTime(startTimeString);
+      startDateTime.SetDateTime(startDate.GetDate(), startTime.GetTime());
+      if (startDateTime.IsDateSet())
+      {
+        Tool.BeginDateTime = startDateTime;
+      }
+      else
+      {
+        Tool.BeginDateTime = sc.BaseDateTimeIn[0];    
+      }
+    }
+    else
+    {
+      Tool.BeginDateTime = sc.BaseDateTimeIn[0];    
+    }
+
+    if (endDateString != "")
+    {
+      endDate = sc.DateStringToSCDateTime(endDateString);
+      endTime = sc.TimeStringToSCDateTime(endTimeString);
+      if (endDate.IsDateSet() && endTime.IsTimeAtMidnight())
+      {
+        // This is a full-day drawing, so we will use 11:59:59pm as the end
+        endTime.SetTimeHMS(23, 59, 59);
+      }
+      endDateTime.SetDateTime(endDate.GetDate(), endTime.GetTime());
+      if (endDateTime.IsDateSet())
+      {
+        if (Tool.DrawingType == DRAWING_RECTANGLE_EXT_HIGHLIGHT)
+        {
+          // If we have an end date then we don't want to extend the rectangle
+          Tool.DrawingType = DRAWING_RECTANGLEHIGHLIGHT;
+        }
+        Tool.EndDateTime = endDateTime;
+      }
+      else
+      {
+        Tool.EndDateTime = sc.BaseDateTimeIn[sc.ArraySize-1];
+      }
+    }
+    else
+    {
+      Tool.EndDateTime = sc.BaseDateTimeIn[sc.ArraySize-1];
+    }
+
+    Tool.Text = tokens.at(6);
+
+    if (colorMap.count(tokens.at(7)) > 0) 
+    {
+      Tool.Color = colorMap[tokens.at(7)];
+      if (price2 > 0) Tool.SecondaryColor = Tool.Color;
+    }
+    else 
+    {
+      msg.Format("Unrecognized color name encountered: %s", tokens.at(7));
+      sc.AddMessageToLog(msg, false);
+      Tool.Color = COLOR_WHITE;
+    }
+
+    lineType = tokens.at(8);
+    if (lineType.CompareNoCase("solid") == 0) Tool.LineStyle = LINESTYLE_SOLID;
+    else if (lineType.CompareNoCase("dash") == 0) Tool.LineStyle = LINESTYLE_DASH;
+    else if (lineType.CompareNoCase("dot") == 0) Tool.LineStyle = LINESTYLE_DOT;
+    else if (lineType.CompareNoCase("dashdot") == 0) Tool.LineStyle = LINESTYLE_DASHDOT;
+    else if (lineType.CompareNoCase("dashdotdot") == 0) Tool.LineStyle = LINESTYLE_DASHDOTDOT;
+    else 
+    {
+      msg.Format("Unknown line type detected: %s. Using default solid line type.", lineType);
+      sc.AddMessageToLog(msg, false);
+      Tool.LineStyle = LINESTYLE_SOLID;
+    }
+
+    if (tokens.at(9) != "")
+    { 
+      Tool.LineWidth = atoi(tokens.at(9));
+    }
+
+    textalignment = atoi(tokens.at(10));
+    // TODO: change to the string compare, but have to figure out how to handle multiple options
+    // Actually, as it turns out, you can only do left or right for study-added tools. This can be simplified.
+    if (textalignment > 0) Tool.TextAlignment = textalignment;
+
+    // draw line
+    Tool.ChartNumber = sc.ChartNumber;
+    Tool.AddMethod = UTAM_ADD_OR_ADJUST;
+    Tool.ShowPrice = showPrice;
+    Tool.TransparencyLevel = transparencyLevel;
+    Tool.LineNumber = uniqueLineNumber + inputLineIndex;
+    sc.UseTool(Tool);
 
     // increment row counter
     inputLineIndex++;
