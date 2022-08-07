@@ -37,7 +37,8 @@ int RequestValuesFromServer
 void DrawLevels 
 ( SCStudyInterfaceRef sc
 , int& showPrice
-, int& transparencyLevel);
+, int& transparencyLevel
+, COLORREF& defaultColor);
 
 SCDateTime ParsetDateTimeFromStrings
 ( SCString& dateString
@@ -51,6 +52,7 @@ SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
   // chart related settings
   SCInputRef i_ShowPriceOnChart = sc.Input[2];
   SCInputRef i_ReloadDaily = sc.Input[3];
+  SCInputRef i_DefaultColor = sc.Input[4];
 
   // Set configuration variables
   if (sc.SetDefaults)
@@ -74,6 +76,9 @@ SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
 
     i_ReloadDaily.Name = "Reload levels daily";
     i_ReloadDaily.SetYesNo(1);
+    
+    i_DefaultColor.Name = "Default color for drawings";
+    i_DefaultColor.SetColor(COLOR_WHITE);
 
     return;
   }
@@ -104,7 +109,8 @@ SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
     r_RequestState = HTTP_REQUEST_RECEIVED;
     int showPrice = i_ShowPriceOnChart.GetInt();
     int transparency = i_Transparency.GetInt();
-    DrawLevels(sc, showPrice, transparency);
+    COLORREF defaultColor = i_DefaultColor.GetColor();
+    DrawLevels(sc, showPrice, transparency, defaultColor);
 	}
 }
 
@@ -147,7 +153,7 @@ int RequestValuesFromServer
 	return 1;
 }
 
-void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel)
+void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel, COLORREF& defaultColor)
 {  
   sc.AddMessageToLog("Redrawing levels...", false);
   SCString msg;
@@ -178,13 +184,24 @@ void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel)
     
     // anything between quotes and commas
     scline.Tokenize("\",\"", tokens);
+    
+    if (tokens.size() >= 12 && strcmp(tokens.at(11), "") != 0)
+    {
+      // We have a value for the hide column, so skip this level
+      inputLineIndex++;
+      continue;
+    }
 
     s_UseTool Tool;
     Tool.LineStyle = LINESTYLE_SOLID;
     Tool.LineWidth = 1;
     Tool.TextAlignment = DT_RIGHT;
-
-    int idx = 1;
+    Tool.ChartNumber = sc.ChartNumber;
+    Tool.AddMethod = UTAM_ADD_OR_ADJUST;
+    Tool.ShowPrice = showPrice;
+    Tool.TransparencyLevel = transparencyLevel;
+    Tool.LineNumber = uniqueLineNumber + inputLineIndex;
+    
     float price;
     float price2 = 0;
 
@@ -226,7 +243,7 @@ void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel)
     endDateString = tokens.at(4);
     endTimeString = tokens.at(5);
 
-    if (startDateString != "")
+    if (strcmp(startDateString, "") != 0)
     {
       startDate = sc.DateStringToSCDateTime(startDateString);
       startTime = sc.TimeStringToSCDateTime(startTimeString);
@@ -245,7 +262,7 @@ void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel)
       Tool.BeginDateTime = sc.BaseDateTimeIn[0];    
     }
 
-    if (endDateString != "")
+    if (strcmp(endDateString, "") != 0)
     {
       endDate = sc.DateStringToSCDateTime(endDateString);
       endTime = sc.TimeStringToSCDateTime(endTimeString);
@@ -276,16 +293,20 @@ void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel)
 
     Tool.Text = tokens.at(6);
 
-    if (colorMap.count(tokens.at(7)) > 0) 
+    if (strcmp(tokens.at(7), "") != 0 && colorMap.count(tokens.at(7)) > 0) 
     {
       Tool.Color = colorMap[tokens.at(7)];
       if (price2 > 0) Tool.SecondaryColor = Tool.Color;
     }
-    else 
+    else
     {
-      msg.Format("Unrecognized color name encountered: %s", tokens.at(7));
-      sc.AddMessageToLog(msg, false);
-      Tool.Color = COLOR_WHITE;
+      if (strcmp(tokens.at(7), "") != 0)
+      {
+        // This isn't an empty color, it's something we didn't recognize, so notify the user
+        msg.Format("Unrecognized color name encountered: %s", tokens.at(7));
+        sc.AddMessageToLog(msg, false);
+      }
+      Tool.Color = defaultColor;
     }
 
     lineType = tokens.at(8);
@@ -301,7 +322,7 @@ void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel)
       Tool.LineStyle = LINESTYLE_SOLID;
     }
 
-    if (tokens.at(9) != "")
+    if (strcmp(tokens.at(9), "") != 0)
     { 
       Tool.LineWidth = atoi(tokens.at(9));
     }
@@ -312,11 +333,6 @@ void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel)
     if (textalignment > 0) Tool.TextAlignment = textalignment;
 
     // draw line
-    Tool.ChartNumber = sc.ChartNumber;
-    Tool.AddMethod = UTAM_ADD_OR_ADJUST;
-    Tool.ShowPrice = showPrice;
-    Tool.TransparencyLevel = transparencyLevel;
-    Tool.LineNumber = uniqueLineNumber + inputLineIndex;
     sc.UseTool(Tool);
 
     // increment row counter
