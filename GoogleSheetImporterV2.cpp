@@ -178,13 +178,23 @@ void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel)
     
     // anything between quotes and commas
     scline.Tokenize("\",\"", tokens);
+    
+    if (tokens.size() == 12 && tokens.at(11) != "")
+    {
+      // We have a value for the hide column, so skip this level
+      continue;
+    }
 
     s_UseTool Tool;
     Tool.LineStyle = LINESTYLE_SOLID;
     Tool.LineWidth = 1;
     Tool.TextAlignment = DT_RIGHT;
-
-    int idx = 1;
+    Tool.ChartNumber = sc.ChartNumber;
+    Tool.AddMethod = UTAM_ADD_OR_ADJUST;
+    Tool.ShowPrice = showPrice;
+    Tool.TransparencyLevel = transparencyLevel;
+    Tool.LineNumber = uniqueLineNumber + inputLineIndex;
+    
     float price;
     float price2 = 0;
 
@@ -312,11 +322,6 @@ void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel)
     if (textalignment > 0) Tool.TextAlignment = textalignment;
 
     // draw line
-    Tool.ChartNumber = sc.ChartNumber;
-    Tool.AddMethod = UTAM_ADD_OR_ADJUST;
-    Tool.ShowPrice = showPrice;
-    Tool.TransparencyLevel = transparencyLevel;
-    Tool.LineNumber = uniqueLineNumber + inputLineIndex;
     sc.UseTool(Tool);
 
     // increment row counter
