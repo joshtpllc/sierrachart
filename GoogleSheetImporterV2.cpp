@@ -41,8 +41,10 @@ void DrawLevels
 , COLORREF& defaultColor);
 
 SCDateTime ParsetDateTimeFromStrings
-( SCString& dateString
-, SCString& timeString);
+( SCStudyInterfaceRef sc
+, char* dateString
+, char* timeString
+, bool isEnd);
 
 SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
 {
@@ -153,6 +155,30 @@ int RequestValuesFromServer
 	return 1;
 }
 
+SCDateTime ParsetDateTimeFromStrings (SCStudyInterfaceRef sc, char* dateString, char* timeString, bool isEnd = false)
+{
+  SCString dateSCString = dateString;
+  SCString timeSCString = timeString;
+  
+  SCDateTime date;
+  SCDateTime time;
+  SCDateTime dateTime;
+
+  if (strcmp(dateSCString, "") != 0)
+  {
+    date = sc.DateStringToSCDateTime(dateSCString);
+    time = sc.TimeStringToSCDateTime(timeSCString);
+    if (isEnd && date.IsDateSet() && time.IsTimeAtMidnight())
+    {
+      // This date is used as an end date, so pick up the last second of the day
+      time.SetTimeHMS(23, 59, 59);
+    }
+    dateTime.SetDateTime(date.GetDate(), time.GetTime());
+  }
+
+  return dateTime;
+}
+
 void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel, COLORREF& defaultColor)
 {  
   sc.AddMessageToLog("Redrawing levels...", false);
@@ -205,16 +231,7 @@ void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel,
     float price;
     float price2 = 0;
 
-    SCString startDateString;
-    SCDateTime startDate;
-    SCString startTimeString;
-    SCDateTime startTime;
     SCDateTime startDateTime;
-
-    SCString endDateString;
-    SCDateTime endDate;
-    SCString endTimeString;
-    SCDateTime endTime;
     SCDateTime endDateTime;
 
     SCString note;
@@ -238,57 +255,18 @@ void DrawLevels (SCStudyInterfaceRef sc, int& showPrice, int& transparencyLevel,
       Tool.EndValue = price2;
     }
 
-    startDateString = tokens.at(2);
-    startTimeString = tokens.at(3);
-    endDateString = tokens.at(4);
-    endTimeString = tokens.at(5);
-
-    if (strcmp(startDateString, "") != 0)
+    startDateTime = ParsetDateTimeFromStrings(sc, tokens.at(2), tokens.at(3));
+    Tool.BeginDateTime = startDateTime.IsDateSet() 
+      ? startDateTime 
+      : sc.BaseDateTimeIn[0];
+    
+    endDateTime = ParsetDateTimeFromStrings(sc, tokens.at(4), tokens.at(5), true);
+    Tool.EndDateTime = endDateTime.IsDateSet()
+      ? endDateTime
+      : sc.BaseDateTimeIn[sc.ArraySize - 1];
+    if (endDateTime.IsDateSet() && Tool.DrawingType == DRAWING_RECTANGLE_EXT_HIGHLIGHT)
     {
-      startDate = sc.DateStringToSCDateTime(startDateString);
-      startTime = sc.TimeStringToSCDateTime(startTimeString);
-      startDateTime.SetDateTime(startDate.GetDate(), startTime.GetTime());
-      if (startDateTime.IsDateSet())
-      {
-        Tool.BeginDateTime = startDateTime;
-      }
-      else
-      {
-        Tool.BeginDateTime = sc.BaseDateTimeIn[0];    
-      }
-    }
-    else
-    {
-      Tool.BeginDateTime = sc.BaseDateTimeIn[0];    
-    }
-
-    if (strcmp(endDateString, "") != 0)
-    {
-      endDate = sc.DateStringToSCDateTime(endDateString);
-      endTime = sc.TimeStringToSCDateTime(endTimeString);
-      if (endDate.IsDateSet() && endTime.IsTimeAtMidnight())
-      {
-        // This is a full-day drawing, so we will use 11:59:59pm as the end
-        endTime.SetTimeHMS(23, 59, 59);
-      }
-      endDateTime.SetDateTime(endDate.GetDate(), endTime.GetTime());
-      if (endDateTime.IsDateSet())
-      {
-        if (Tool.DrawingType == DRAWING_RECTANGLE_EXT_HIGHLIGHT)
-        {
-          // If we have an end date then we don't want to extend the rectangle
-          Tool.DrawingType = DRAWING_RECTANGLEHIGHLIGHT;
-        }
-        Tool.EndDateTime = endDateTime;
-      }
-      else
-      {
-        Tool.EndDateTime = sc.BaseDateTimeIn[sc.ArraySize-1];
-      }
-    }
-    else
-    {
-      Tool.EndDateTime = sc.BaseDateTimeIn[sc.ArraySize-1];
+      Tool.DrawingType = DRAWING_RECTANGLEHIGHLIGHT;
     }
 
     Tool.Text = tokens.at(6);
