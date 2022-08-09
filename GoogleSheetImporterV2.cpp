@@ -26,6 +26,7 @@ void ResetForNextRequest
 ( SCStudyInterfaceRef sc
 , int& r_RequestState
 , SCDateTime& r_LastRequestDateTime
+, int& r_DrawingsExist
 );
 
 int RequestValuesFromServer
@@ -88,16 +89,29 @@ SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
   SCString& r_HttpResponseContent = sc.GetPersistentSCString(1);
   int& r_RequestState = sc.GetPersistentInt(2);
 	SCDateTime& r_LastRequestDateTime = sc.GetPersistentSCDateTime(3);
+  int& r_DrawingsExist = sc.GetPersistentInt(0);
+
+  if (sc.HideStudy && r_DrawingsExist)
+  {
+    sc.AddMessageToLog("Study hidden, removing drawings and resetting", false);
+    sc.DeleteACSChartDrawing(0, TOOL_DELETE_ALL, 0);
+    ResetForNextRequest(sc, r_RequestState, r_LastRequestDateTime, r_DrawingsExist);
+    return;
+  }
+  else if (sc.HideStudy)
+  {
+    return;
+  }
 
   if (sc.UpdateStartIndex == 0  && r_RequestState == HTTP_REQUEST_RECEIVED) // full recalc, so we reload
   {
     sc.AddMessageToLog("Full recalc detected - UpdateStartIndex is zero and we have an HTTP request.", false);
-    ResetForNextRequest(sc, r_RequestState, r_LastRequestDateTime);
+    ResetForNextRequest(sc, r_RequestState, r_LastRequestDateTime, r_DrawingsExist);
   }
   else if (r_LastRequestDateTime.IsUnset() || ((sc.CurrentSystemDateTime - r_LastRequestDateTime) >= SCDateTime::MINUTES(1440))) // more than 24 hours since last retrieval
   {
     sc.AddMessageToLog("Refresh interval has passed. Flagging to request updated data.", false);
-    ResetForNextRequest(sc, r_RequestState, r_LastRequestDateTime);
+    ResetForNextRequest(sc, r_RequestState, r_LastRequestDateTime, r_DrawingsExist);
   }
 
   if (RequestValuesFromServer(sc, i_FilePath.GetString(), r_RequestState))
@@ -113,6 +127,7 @@ SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
     int transparency = i_Transparency.GetInt();
     COLORREF defaultColor = i_DefaultColor.GetColor();
     DrawLevels(sc, showPrice, transparency, defaultColor);
+    r_DrawingsExist = true;
 	}
 }
 
@@ -120,10 +135,12 @@ void ResetForNextRequest
 ( SCStudyInterfaceRef sc
 , int& r_RequestState
 , SCDateTime& r_LastRequestDateTime
+, int& r_DrawingsExist
 )
 {
 	r_RequestState = HTTP_REQUEST_NOT_SENT;
 	r_LastRequestDateTime = sc.CurrentSystemDateTime;
+  r_DrawingsExist = false;
 }
 
 int RequestValuesFromServer
