@@ -1,19 +1,3 @@
-/*
-====== NOTES ======
-SCString has a case-insensitve compare - SCString::CompareNoCase()
-REF: https://www.sierrachart.com/index.php?page=doc/ACSILProgrammingConcepts.html#WorkingWithTextStrings
-
-You can delete all the study drawings with sc.DeleteACSChartDrawing(0, TOOL_DELETE_ALL, 0)
-REF: https://www.sierrachart.com/index.php?page=doc/ACSILDrawingTools.html#scDeleteACSChartDrawing
-
-Manual looping must use sc.UpdateStartIndex. You know it's the first run if that's 0, which is where we'd likely hit the HTTP endpoint
-REF: https://www.sierrachart.com/index.php?page=doc/ACS_ArraysAndLooping.html#ManualLooping
-
-If you use pointers to store the response data (not sure if that's needed, but the example uses it), then you'll need to clean up
-when the study is removed from the chart. You'll know that based on the sc.LastCallToFunction being 1/true
-REF: https://www.sierrachart.com/index.php?page=doc/ACSIL_Members_Variables_And_Arrays.html#scLastCallToFunction
-*/
-
 #include "sierrachart.h"
 #include "colormap.h"
 #include <string>
