@@ -111,7 +111,7 @@ SCSFExport scsf_GoogleSheetsLevelsImporterV2(SCStudyInterfaceRef sc)
   SCString& r_HttpResponseContent = sc.GetPersistentSCString(1);
   int& r_FileProcessed = sc.GetPersistentInt(0);
   int& r_RequestState = sc.GetPersistentInt(2);
-	SCDateTime& r_LastRequestDateTime = sc.GetPersistentSCDateTime(3);
+  SCDateTime& r_LastRequestDateTime = sc.GetPersistentSCDateTime(3);
   int& r_DrawingsExist = sc.GetPersistentInt(0);
   int& r_DataSource = sc.GetPersistentInt(0);
 
@@ -168,8 +168,8 @@ void ResetForNextRequest
 , int& r_FileProcessed
 )
 {
-	r_RequestState = HTTP_REQUEST_NOT_SENT;
-	r_LastRequestDateTime = sc.CurrentSystemDateTime;
+  r_RequestState = HTTP_REQUEST_NOT_SENT;
+  r_LastRequestDateTime = sc.CurrentSystemDateTime;
   r_DrawingsExist = false;
   r_FileProcessed = false;
   
@@ -233,7 +233,7 @@ void ProcessGoogleSheetData(SCStudyInterfaceRef sc, const char* sheetId, int& r_
   }  
   
   if (sc.HTTPRequestID != 0)//response received
-	{
+  {
     sc.AddMessageToLog("Response received, rendering tools...", false);
     r_RequestState = HTTP_REQUEST_RECEIVED;
     
@@ -260,7 +260,7 @@ void ProcessGoogleSheetData(SCStudyInterfaceRef sc, const char* sheetId, int& r_
       // increment row counter
       inputLineIndex++;
     }
-	}
+  }
 }
 
 int RequestValuesFromServer
@@ -271,25 +271,25 @@ int RequestValuesFromServer
 {
   SCString fullUrl;
 
-	if (r_RequestState != HTTP_REQUEST_NOT_SENT)
+  if (r_RequestState != HTTP_REQUEST_NOT_SENT)
   {
     return 0;
   }
 
-	fullUrl.Format("https://docs.google.com/spreadsheets/d/%s/gviz/tq?tqx=out:csv", sheetId.GetChars());
+  fullUrl.Format("https://docs.google.com/spreadsheets/d/%s/gviz/tq?tqx=out:csv", sheetId.GetChars());
   
-	if (!sc.MakeHTTPRequest(fullUrl))
-	{
-		sc.AddMessageToLog("Error making HTTP request. Check your sheet URL.", true);
-		r_RequestState = HTTP_REQUEST_ERROR;
-	}
-	else
-	{
-		r_RequestState = HTTP_REQUEST_MADE;
-		sc.AddMessageToLog("Requesting data from Google sheet", false);
-	}
+  if (!sc.MakeHTTPRequest(fullUrl))
+  {
+    sc.AddMessageToLog("Error making HTTP request. Check your sheet URL.", true);
+    r_RequestState = HTTP_REQUEST_ERROR;
+  }
+  else
+  {
+    r_RequestState = HTTP_REQUEST_MADE;
+    sc.AddMessageToLog("Requesting data from Google sheet", false);
+  }
 
-	return 1;
+  return 1;
 }
 
 SCDateTime ParsetDateTimeFromStrings (SCStudyInterfaceRef sc, SCString dateString, SCString timeString, bool isEnd = false)
