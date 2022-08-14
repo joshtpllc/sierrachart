@@ -225,7 +225,6 @@ void ProcessFileData(SCStudyInterfaceRef sc, const char* filePath, int& showPric
 void ProcessGoogleSheetData(SCStudyInterfaceRef sc, const char* sheetId, int& r_RequestState, int& showPrice, int& transparency, COLORREF& defaultColor)
 {
   SCString msg;
-  sc.AddMessageToLog(msg.Format("Google sheet is %s.", sheetId), false);
   
   if (RequestValuesFromServer(sc, sheetId, r_RequestState))
   {
